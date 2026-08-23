@@ -1,0 +1,14 @@
+[Unit]
+Description=Kickbox WooCommerce Import Worker %i
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStart=/opt/kickbox-sync/scripts/import-loop.sh %i
+Restart=always
+RestartSec=2
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

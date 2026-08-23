@@ -1,0 +1,14 @@
+[Unit]
+Description=Kickbox Product Image Worker
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStart=/opt/kickbox-sync/scripts/image-loop.sh
+Restart=always
+RestartSec=3
+Nice=8
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ENV_FILE=/opt/kickbox-sync/.env
+[ -f "$ENV_FILE" ] || { echo "Липсва $ENV_FILE"; exit 1; }
+set -a; . "$ENV_FILE"; set +a
+CMD="${1:-status}"
+BASE="http://127.0.0.1:8787"
+case "$CMD" in
+  full) curl -fsS -X POST -H "x-sync-key: $SYNC_SECRET" "$BASE/sync/full" | jq . ;;
+  new) curl -fsS -X POST -H "x-sync-key: $SYNC_SECRET" "$BASE/sync/new" | jq . ;;
+  stop) curl -fsS -X POST -H "x-sync-key: $SYNC_SECRET" "$BASE/sync/stop" | jq . ;;
+  status) curl -fsS -H "x-sync-key: $SYNC_SECRET" "$BASE/status" | jq . ;;
+  wp-status) curl -fsS -H "x-sync-key: $SYNC_SECRET" "$WP_BASE_URL/wp-json/product-sync/v1/vps/status" | jq . ;;
+  logs) cd /opt/kickbox-sync && docker compose logs -f engine ;;
+  *) echo "Usage: kickbox-sync {full|new|stop|status|wp-status|logs}"; exit 2 ;;
+esac
