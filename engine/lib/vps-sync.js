@@ -167,16 +167,30 @@ async function waitForBuffer(maxBuffer = MAX_STAGE_BUFFER) {
 
 async function waitForSourceDrain() {
   const deadline = Date.now() + SOURCE_DRAIN_TIMEOUT_MINUTES * 60 * 1000;
+  let lastStatus = {};
   while (Date.now() < deadline) {
     if ((await redis.get('sync:stop')) === '1') throw new Error('Sync stopped by user');
     try {
       const status = await wpStatus();
-      await setStatus({ stage_pending: Number(status.stage_pending || 0), image_pending: Number(status.image_pending || 0), waiting_for_wordpress: true });
+      lastStatus = status || {};
+      await setStatus({
+        stage_pending: Number(status.stage_pending || 0),
+        image_pending: Number(status.image_pending || 0),
+        waiting_for_wordpress: true
+      });
       if (Number(status.stage_pending || 0) <= SOURCE_DRAIN_TARGET) return status;
     } catch {}
     await sleep(1200);
   }
-  throw new Error(`WordPress staging buffer did not drain under ${SOURCE_DRAIN_TARGET} in time`);
+
+  await setStatus({
+    stage_pending: Number(lastStatus.stage_pending || 0),
+    image_pending: Number(lastStatus.image_pending || 0),
+    waiting_for_wordpress: false,
+    drain_timeout: true
+  });
+
+  return lastStatus;
 }
 
 async function processSource(source, mode) {
@@ -195,7 +209,7 @@ async function processSource(source, mode) {
   await setStatus({ source_selected:selected.length, phase:'scrape' });
 
   let staged = 0, ignored = 0, errors = 0, scraped = 0, unchanged = 0;
-  const windowSize = Math.max(STAGE_PUSH_SIZE, SCRAPE_CONCURRENCY * 8);
+  const windowSize = Math.max(24, Math.min(48, SCRAPE_CONCURRENCY));
 
   for (let offset = 0; offset < selected.length; offset += windowSize) {
     if ((await redis.get('sync:stop')) === '1') throw new Error('Sync stopped by user');
@@ -255,7 +269,19 @@ export async function connectRedis() {
 
 export async function status() {
   await connectRedis();
-  return JSON.parse((await redis.get('sync:status')) || '{}');
+  const current = JSON.parse((await redis.get('sync:status')) || '{}');
+
+  try {
+    const wp = await wpStatus();
+    return {
+      ...current,
+      stage_pending: Number(wp.stage_pending || 0),
+      image_pending: Number(wp.image_pending || 0),
+      wp_live: true
+    };
+  } catch {
+    return current;
+  }
 }
 
 export async function stopSync() {
