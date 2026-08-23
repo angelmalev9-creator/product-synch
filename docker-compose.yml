@@ -7,14 +7,33 @@ services:
       - kickbox-sync-redis:/data
 
   engine:
-    build: ./engine
+    build:
+      context: ./engine
     restart: unless-stopped
-    env_file:
-      - .env
     depends_on:
       - redis
+
+    environment:
+      PORT: "8787"
+      REDIS_URL: "redis://redis:6379"
+      WP_BASE_URL: "${WP_BASE_URL:-https://kickbox.bg}"
+      SYNC_SECRET: "${SYNC_SECRET}"
+
+      SCRAPE_CONCURRENCY: "${SCRAPE_CONCURRENCY:-48}"
+      STAGE_PUSH_SIZE: "${STAGE_PUSH_SIZE:-400}"
+      MAX_STAGE_BUFFER: "${MAX_STAGE_BUFFER:-3000}"
+      SOURCE_DRAIN_TARGET: "${SOURCE_DRAIN_TARGET:-120}"
+      SOURCE_DRAIN_TIMEOUT_MINUTES: "${SOURCE_DRAIN_TIMEOUT_MINUTES:-90}"
+
     ports:
       - "127.0.0.1:8787:8787"
 
 volumes:
   kickbox-sync-redis:
+    external: true
+    name: kickbox-sync_kickbox-sync-redis
+
+networks:
+  default:
+    external: true
+    name: kickbox-sync_default
