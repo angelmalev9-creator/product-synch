@@ -93,14 +93,14 @@ async function wpRequest(path, method = 'GET', body = null, timeoutMs = 30000) {
 }
 
 async function wpStatus() {
-  return await wpRequest('/wp-json/product-sync/v1/vps/status', 'GET', null, 20000);
+  return await wpRequest('/?rest_route=/product-sync/v1/vps/status', 'GET', null, 20000);
 }
 
 async function stageToWordPress(products) {
   if (!products.length) return { accepted: 0 };
   let attempt = 0;
   while (true) {
-    try { return await wpRequest('/wp-json/product-sync/v1/vps/stage', 'POST', { products }, 60000); }
+    try { return await wpRequest('/?rest_route=/product-sync/v1/vps/stage', 'POST', { products }, 60000); }
     catch (e) {
       attempt++;
       if (attempt >= 8) throw e;
