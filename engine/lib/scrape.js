@@ -5,6 +5,25 @@ import { kmSport } from './sources/kmsport.js';
 import { leaderFitness } from './sources/leaderfitness.js';
 import { sourceForUrl } from './sources/index.js';
 
+const MIN_PUBLIC_PRICE_EUR = Math.max(0, Number(process.env.MIN_PUBLIC_PRICE_EUR || 5));
+const EUR_TO_BGN = 1.95583;
+
+function minimumAllowedSourcePrice(currency = 'EUR') {
+  const code = String(currency || 'EUR').trim().toUpperCase();
+  if (code === 'BGN') return MIN_PUBLIC_PRICE_EUR * EUR_TO_BGN;
+  return MIN_PUBLIC_PRICE_EUR;
+}
+
+function assertSaneMinimumPrice(product, url) {
+  const price = Number(product?.sourcePrice);
+  if (!Number.isFinite(price) || price <= 0) return;
+  const currency = String(product?.currency || 'EUR').trim().toUpperCase();
+  const minimum = minimumAllowedSourcePrice(currency);
+  if (price < minimum) {
+    throw new Error(`Отхвърлена подозрително ниска цена: ${price} ${currency} < ${minimum.toFixed(2)} ${currency} (${MIN_PUBLIC_PRICE_EUR.toFixed(2)} EUR минимум) — ${url}`);
+  }
+}
+
 export async function discoverAll() {
   const items = [];
   const counts = {};
@@ -113,6 +132,7 @@ export async function scrapeOne(url, sourceHint = null, seed = null) {
     product = source.parseProduct(html, url);
   }
   if (!product?.title) throw new Error('Не е намерено име на продукта');
+  assertSaneMinimumPrice(product, url);
   return product;
 }
 
