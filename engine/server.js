@@ -1,4 +1,5 @@
 import express from 'express';
+import './lib/mma-safety-patch.js';
 import { connectRedis, runSync, status, stopSync } from './lib/vps-sync.js';
 
 const app=express();
@@ -30,5 +31,10 @@ app.listen(port,'0.0.0.0',()=>console.log(`Kickbox Sync VPS listening on :${port
 if(String(process.env.AUTO_START_FULL||'false').toLowerCase()==='true') setTimeout(()=>start('full'),4000);
 const interval=Math.max(0,Number(process.env.AUTO_NEW_INTERVAL_MINUTES||60));
 if(interval>0) setInterval(()=>{if(!currentPromise)start('new');},interval*60*1000);
-const fullHours=Math.max(0,Number(process.env.AUTO_FULL_INTERVAL_HOURS||24));
+
+// A full run re-checks every known source product. Price and inStock are part of
+// the staged payload, so WooCommerce is updated whenever either value changes.
+// Cap the interval at 12h so stale supplier stock cannot sit for a full day.
+const requestedFullHours=Math.max(0,Number(process.env.AUTO_FULL_INTERVAL_HOURS||12));
+const fullHours=requestedFullHours>0?Math.min(requestedFullHours,12):0;
 if(fullHours>0) setInterval(()=>{if(!currentPromise)start('full');},fullHours*60*60*1000);
